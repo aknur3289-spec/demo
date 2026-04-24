@@ -18,8 +18,6 @@
     background-image: linear-gradient(rgba(168,85,247,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(168,85,247,0.03) 1px, transparent 1px);
     background-size: 40px 40px; pointer-events: none; z-index: 0;
   }
-
-  /* ── Login screen ── */
   .login-screen {
     position: fixed; inset: 0; z-index: 50;
     display: flex; align-items: center; justify-content: center;
@@ -51,11 +49,8 @@
   }
   .login-btn:hover { background: #c084fc; }
   .pw-err { color: var(--danger); font-size: 13px; margin-top: 0.8rem; min-height: 18px; }
-
-  /* ── Admin dashboard ── */
   .dashboard { position: relative; z-index: 1; display: none; }
   .dashboard.show { display: block; }
-
   .topbar {
     position: sticky; top: 0; z-index: 10;
     background: rgba(14,14,17,0.92); backdrop-filter: blur(12px);
@@ -64,7 +59,6 @@
   }
   .topbar-title { font-family: 'DM Serif Display', serif; font-size: 1.2rem; flex: 1; }
   .topbar-title span { color: var(--accent); }
-
   .btn {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 8px; color: var(--text); font-family: 'DM Sans', sans-serif;
@@ -76,18 +70,14 @@
   .btn.blue  { border-color: var(--blue); color: var(--blue); }
   .btn.red   { border-color: rgba(240,122,122,0.4); color: var(--danger); }
   .btn.muted { border-color: rgba(122,122,138,0.4); color: var(--muted); }
-
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
   .main { padding: 2rem; max-width: 1100px; margin: 0 auto; }
-
-  /* Stats row */
   .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 2rem; }
   .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.2rem 1.4rem; }
   .stat-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); margin-bottom: 0.5rem; }
   .stat-card .value { font-family: 'DM Serif Display', serif; font-size: 2rem; color: var(--text); line-height: 1; }
   .stat-card .value.green { color: var(--accent); }
   .stat-card .value.blue  { color: var(--blue); }
-
-  /* Controls */
   .controls { display: flex; align-items: center; gap: 10px; margin-bottom: 1.25rem; flex-wrap: wrap; }
   .controls h2 { font-family: 'DM Serif Display', serif; font-size: 1.25rem; font-weight: 400; flex: 1; }
   select.filter {
@@ -98,8 +88,6 @@
     background-repeat: no-repeat; background-position: right 10px center;
   }
   select.filter option { background: #18181d; }
-
-  /* Table */
   .table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
   table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 600px; }
   th { background: var(--surface2); color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; font-size: 11px; font-weight: 500; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
@@ -111,6 +99,10 @@
   .type-badge.p { background: rgba(168,85,247,0.1); color: var(--accent); border: 1px solid rgba(168,85,247,0.25); }
   .type-badge.a { background: rgba(122,184,240,0.1); color: var(--blue); border: 1px solid rgba(122,184,240,0.25); }
   .stars-disp { color: var(--accent); letter-spacing: -2px; }
+  .loading { text-align: center; padding: 2rem; color: var(--muted); }
+  .sync-status { font-size: 12px; color: var(--muted); margin-left: auto; }
+  .sync-status.ok { color: var(--success); }
+  .sync-status.err { color: var(--danger); }
 </style>
 </head>
 <body>
@@ -130,22 +122,19 @@
 
 <!-- DASHBOARD -->
 <div class="dashboard" id="dashboard">
-
   <div class="topbar">
     <div class="topbar-title">Admin <span>/ Обратная связь</span></div>
-    <button class="btn green" onclick="downloadCSV('participant')">↓ CSV Участники</button>
-    <button class="btn blue"  onclick="downloadCSV('assistant')">↓ CSV Ассистенты</button>
+    <button class="btn green" id="btn-csv-p" onclick="downloadCSV('participant')">↓ CSV Участники</button>
+    <button class="btn blue"  id="btn-csv-a" onclick="downloadCSV('assistant')">↓ CSV Ассистенты</button>
     <button class="btn muted" onclick="downloadCSV('all')">↓ Все данные</button>
+    <button class="btn muted" onclick="refreshData()">↻ Обновить</button>
     <button class="btn red"   onclick="clearData()">Очистить</button>
     <button class="btn muted" onclick="logout()">Выйти</button>
+    <span class="sync-status" id="sync-status"></span>
   </div>
 
   <div class="main">
-
-    <!-- Stats -->
     <div class="stats" id="stats-row"></div>
-
-    <!-- Table -->
     <div class="controls">
       <h2>Ответы</h2>
       <select class="filter" id="filter-type" onchange="renderTable()">
@@ -160,26 +149,120 @@
         <tbody id="t-body"></tbody>
       </table>
     </div>
-
   </div>
 </div>
 
 <script>
-// ── Config ────────────────────────────────────────────────
-const DEV_PASSWORD  = 'dev2025';       // ← смените на свой пароль
-const SESSION_KEY   = 'dev_unlocked';
-const STORAGE_KEY   = 'event_feedback_v1';
-// ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════
+// ⚙️  НАСТРОЙКИ — ЗАПОЛНИТЕ ПЕРЕД ЗАПУСКОМ
+// ═══════════════════════════════════════════════════════
+const CONFIG = {
+  // Пароль для входа в админку
+  DEV_PASSWORD: 'dev2025',
+  
+  // JSONBin.io настройки (получите бесплатно на https://jsonbin.io)
+  JSONBIN_API_KEY: 'YOUR_API_KEY_HERE',      // ← Ваш Master Key
+  JSONBIN_BIN_ID: 'YOUR_BIN_ID_HERE',        // ← ID вашего bin
+  
+  // Ключи сессии
+  SESSION_KEY: 'dev_unlocked',
+  
+  // URL API JSONBin
+  API_URL: 'https://api.jsonbin.io/v3/b/'
+};
 
-function loadData() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; } }
+// ═══════════════════════════════════════════════════════
+// 📡  РАБОТА С JSONBIN (замена localStorage)
+// ═══════════════════════════════════════════════════════
+let cloudData = [];
+let isLoading = false;
 
-// Auth
+async function fetchFromCloud() {
+  if (isLoading) return cloudData;
+  isLoading = true;
+  setSyncStatus('Загрузка...', 'warn');
+  
+  try {
+    const res = await fetch(CONFIG.API_URL + CONFIG.JSONBIN_BIN_ID, {
+      headers: {
+        'X-Master-Key': CONFIG.JSONBIN_API_KEY,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!res.ok) {
+      if (res.status === 404) {
+        // Bin не существует — создаём пустой
+        await saveToCloud([]);
+        return [];
+      }
+      throw new Error(`HTTP ${res.status}`);
+    }
+    
+    const json = await res.json();
+    cloudData = Array.isArray(json.record) ? json.record : [];
+    setSyncStatus('✓ Синхронизировано', 'ok');
+    return cloudData;
+    
+  } catch (err) {
+    console.error('Fetch error:', err);
+    setSyncStatus('✗ Ошибка загрузки', 'err');
+    // Пробуем локальный fallback (на случай проблем с сетью)
+    try {
+      const local = JSON.parse(localStorage.getItem('feedback_fallback') || '[]');
+      setSyncStatus('⚠ Работаем офлайн', 'warn');
+      return local;
+    } catch { return []; }
+  } finally {
+    isLoading = false;
+  }
+}
+
+async function saveToCloud(data) {
+  try {
+    const res = await fetch(CONFIG.API_URL + CONFIG.JSONBIN_BIN_ID, {
+      method: 'PUT',
+      headers: {
+        'X-Master-Key': CONFIG.JSONBIN_API_KEY,
+        'Content-Type': 'application/json',
+        'X-Bin-Meta': 'false'
+      },
+      body: JSON.stringify(data)
+    });
+    
+    if (!res.ok) throw new Error(`Save failed: ${res.status}`);
+    
+    // Сохраняем локальную копию на всякий случай
+    localStorage.setItem('feedback_fallback', JSON.stringify(data));
+    setSyncStatus('✓ Сохранено', 'ok');
+    return true;
+  } catch (err) {
+    console.error('Save error:', err);
+    setSyncStatus('✗ Не сохранено', 'err');
+    // Сохраняем локально как fallback
+    localStorage.setItem('feedback_fallback', JSON.stringify(data));
+    return false;
+  }
+}
+
+function setSyncStatus(text, type) {
+  const el = document.getElementById('sync-status');
+  if (el) {
+    el.textContent = text;
+    el.className = 'sync-status ' + (type === 'ok' ? 'ok' : type === 'err' ? 'err' : '');
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// 🔐  АВТОРИЗАЦИЯ
+// ═══════════════════════════════════════════════════════
 function checkPw() {
   const val = document.getElementById('pw-input').value;
   const errEl = document.getElementById('pw-err');
   const inp = document.getElementById('pw-input');
-  if (val === DEV_PASSWORD) {
-    sessionStorage.setItem(SESSION_KEY, '1');
+  
+  if (val === CONFIG.DEV_PASSWORD) {
+    sessionStorage.setItem(CONFIG.SESSION_KEY, '1');
     document.getElementById('login-screen').classList.add('hidden');
     document.getElementById('dashboard').classList.add('show');
     renderAll();
@@ -192,32 +275,32 @@ function checkPw() {
 }
 
 function logout() {
-  sessionStorage.removeItem(SESSION_KEY);
+  sessionStorage.removeItem(CONFIG.SESSION_KEY);
   document.getElementById('login-screen').classList.remove('hidden');
   document.getElementById('dashboard').classList.remove('show');
   document.getElementById('pw-input').value = '';
   document.getElementById('pw-err').textContent = '';
 }
 
-// On load
-if (sessionStorage.getItem(SESSION_KEY) === '1') {
-  document.getElementById('login-screen').classList.add('hidden');
-  document.getElementById('dashboard').classList.add('show');
-  renderAll();
-} else {
-  setTimeout(() => document.getElementById('pw-input').focus(), 100);
+// ═══════════════════════════════════════════════════════
+// 🎨  ОТРИСОВКА ИНТЕРФЕЙСА
+// ═══════════════════════════════════════════════════════
+async function renderAll() {
+  await fetchFromCloud();
+  renderStats();
+  renderTable();
 }
 
-function renderAll() { renderStats(); renderTable(); }
-
 function renderStats() {
-  const data = loadData();
+  const data = cloudData;
   const parts = data.filter(r => r.type === 'Участник');
   const assts = data.filter(r => r.type === 'Ассистент');
+  
   const avgRating = arr => {
     const vals = arr.map(r => +r.r1).filter(v => v > 0);
     return vals.length ? (vals.reduce((a,b) => a+b, 0) / vals.length).toFixed(1) : '—';
   };
+  
   document.getElementById('stats-row').innerHTML = `
     <div class="stat-card"><div class="label">Всего ответов</div><div class="value">${data.length}</div></div>
     <div class="stat-card"><div class="label">Участники</div><div class="value green">${parts.length}</div></div>
@@ -230,19 +313,21 @@ function renderStats() {
 const ALL_COLS = ['Время','Тип','Имя','Email','Оценка 1','Оценка 2','Текст 1','Текст 2','Ответ'];
 
 function renderTable() {
-  const data = loadData();
   const filter = document.getElementById('filter-type').value;
-  const filtered = filter === 'all' ? data : data.filter(r =>
+  const filtered = filter === 'all' ? cloudData : cloudData.filter(r =>
     filter === 'participant' ? r.type === 'Участник' : r.type === 'Ассистент'
   );
+  
   document.getElementById('t-head').innerHTML = '<tr>' + ALL_COLS.map(c => `<th>${c}</th>`).join('') + '</tr>';
+  
   if (!filtered.length) {
     document.getElementById('t-body').innerHTML = `<tr><td colspan="${ALL_COLS.length}" class="empty">Ответов пока нет</td></tr>`;
     return;
   }
+  
   document.getElementById('t-body').innerHTML = filtered.map(r => `<tr>
-    <td style="white-space:nowrap;color:var(--muted)">${r.time}</td>
-    <td><span class="type-badge ${r.type==='Участник'?'p':'a'}">${r.type}</span></td>
+    <td style="white-space:nowrap;color:var(--muted)">${r.time || '—'}</td>
+    <td><span class="type-badge ${r.type==='Участник'?'p':'a'}">${r.type || '—'}</span></td>
     <td><strong>${esc(r.name)}</strong></td>
     <td style="color:var(--muted)">${esc(r.email)||'—'}</td>
     <td><span class="stars-disp">${r.r1>0?'★'.repeat(+r.r1):''}</span> ${r.r1>0?r.r1:'—'}</td>
@@ -255,14 +340,16 @@ function renderTable() {
 
 function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
-// CSV downloads
+// ═══════════════════════════════════════════════════════
+// 📥  ЭКСПОРТ В CSV
+// ═══════════════════════════════════════════════════════
 function downloadCSV(type) {
-  const all = loadData();
-  if (!all.length) { alert('Нет данных для скачивания'); return; }
+  if (!cloudData.length) { alert('Нет данных для скачивания'); return; }
+  
   let data, headers, filename;
 
   if (type === 'participant') {
-    data = all.filter(r => r.type === 'Участник');
+    data = cloudData.filter(r => r.type === 'Участник');
     if (!data.length) { alert('Нет ответов от участников'); return; }
     headers = ['Время','Имя','Email','Оценка (общ.)','Оценка (орг.)','Что понравилось','Что улучшить','Придёт снова'];
     filename = 'participants_' + today() + '.csv';
@@ -270,7 +357,7 @@ function downloadCSV(type) {
     trigger(headers, rows, filename);
 
   } else if (type === 'assistant') {
-    data = all.filter(r => r.type === 'Ассистент');
+    data = cloudData.filter(r => r.type === 'Ассистент');
     if (!data.length) { alert('Нет ответов от ассистентов'); return; }
     headers = ['Время','Имя','Email','Оценка работы','Сложные задачи','Предложения','Участвует снова'];
     filename = 'assistants_' + today() + '.csv';
@@ -280,7 +367,7 @@ function downloadCSV(type) {
   } else {
     headers = ['Время','Тип','Имя','Email','Оценка 1','Оценка 2','Текст 1','Текст 2','Ответ'];
     filename = 'feedback_all_' + today() + '.csv';
-    const rows = all.map(r => [r.time, r.type, r.name, r.email, r.r1, r.r2, r.t1, r.t2, r.ans].map(ce));
+    const rows = cloudData.map(r => [r.time, r.type, r.name, r.email, r.r1, r.r2, r.t1, r.t2, r.ans].map(ce));
     trigger(headers, rows, filename);
   }
 }
@@ -301,10 +388,57 @@ function ce(v) {
 
 function today() { return new Date().toISOString().slice(0,10); }
 
-function clearData() {
-  if (!confirm('Удалить ВСЕ ответы? Это действие нельзя отменить.')) return;
-  localStorage.removeItem(STORAGE_KEY);
+// ═══════════════════════════════════════════════════════
+// 🗑️  ОЧИСТКА ДАННЫХ
+// ═══════════════════════════════════════════════════════
+async function clearData() {
+  if (!confirm('Удалить ВСЕ ответы из облака? Это действие нельзя отменить.')) return;
+  
+  try {
+    await saveToCloud([]);
+    cloudData = [];
+    renderAll();
+    alert('Данные успешно удалены');
+  } catch (err) {
+    alert('Ошибка при удалении: ' + err.message);
+  }
+}
+
+async function refreshData() {
+  const btn = event?.target;
+  if (btn) {
+    const original = btn.textContent;
+    btn.textContent = '↻';
+    btn.disabled = true;
+  }
+  
+  await fetchFromCloud();
+  renderStats();
+  renderTable();
+  
+  if (btn) {
+    btn.textContent = original;
+    btn.disabled = false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// 🚀  ИНИЦИАЛИЗАЦИЯ
+// ═══════════════════════════════════════════════════════
+if (sessionStorage.getItem(CONFIG.SESSION_KEY) === '1') {
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('dashboard').classList.add('show');
   renderAll();
+} else {
+  setTimeout(() => document.getElementById('pw-input')?.focus(), 100);
+}
+
+// Проверка конфигурации при загрузке
+if (CONFIG.JSONBIN_API_KEY === 'YOUR_API_KEY_HERE' || CONFIG.JSONBIN_BIN_ID === 'YOUR_BIN_ID_HERE') {
+  console.warn('⚠️  ВНИМАНИЕ: Не настроены JSONBin credentials!\n' +
+    '1. Зарегистрируйтесь на https://jsonbin.io\n' +
+    '2. Создайте новый bin и скопируйте его ID\n' +
+    '3. Вставьте API Key и Bin ID в CONFIG в начале этого файла');
 }
 </script>
 </body>
