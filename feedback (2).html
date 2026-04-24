@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Обратная связь — Мероприятие</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0e0e11; --surface: #18181d; --surface2: #222228; --border: #2e2e38;
+    --accent: #a855f7; --accent-dim: #7c3aed; --text: #f0ede6; --muted: #7a7a8a;
+    --danger: #f07a7a; --success: #7af0ae; --radius: 12px;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-weight: 300; min-height: 100vh; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(168,85,247,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(168,85,247,0.03) 1px, transparent 1px);
+    background-size: 40px 40px; pointer-events: none; z-index: 0;
+  }
+  .page { position: relative; z-index: 1; max-width: 680px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+  header { margin-bottom: 3rem; }
+  .badge { display: inline-block; font-size: 11px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); border: 1px solid rgba(168,85,247,0.3); border-radius: 20px; padding: 4px 14px; margin-bottom: 1.2rem; }
+  h1 { font-family: 'DM Serif Display', serif; font-size: clamp(2rem, 6vw, 3rem); font-weight: 400; line-height: 1.15; margin-bottom: 0.75rem; letter-spacing: -0.02em; }
+  h1 em { font-style: italic; color: var(--accent); }
+  .sub { font-size: 15px; color: var(--muted); line-height: 1.6; max-width: 480px; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 2rem; border-bottom: 1px solid var(--border); }
+  .tab-btn { background: none; border: none; color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 14px; padding: 10px 20px 12px; cursor: pointer; position: relative; transition: color 0.2s; }
+  .tab-btn::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 2px; background: var(--accent); transform: scaleX(0); transition: transform 0.2s; }
+  .tab-btn.active { color: var(--text); }
+  .tab-btn.active::after { transform: scaleX(1); }
+  .form-panel { display: none; }
+  .form-panel.active { display: block; animation: fadeIn 0.25s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 480px) { .row { grid-template-columns: 1fr; } }
+  .field { margin-bottom: 1.25rem; }
+  label { display: block; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; font-weight: 500; }
+  input[type=text], input[type=email], select, textarea {
+    width: 100%; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 300;
+    padding: 12px 16px; outline: none; transition: border-color 0.2s, background 0.2s; appearance: none;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent-dim); background: var(--surface2); }
+  textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
+  select { cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%237a7a8a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 14px center; padding-right: 36px; }
+  select option { background: #18181d; }
+  .stars { display: flex; gap: 8px; }
+  .star { font-size: 28px; cursor: pointer; color: var(--border); transition: color 0.1s, transform 0.1s; user-select: none; line-height: 1; }
+  .star:hover, .star.on { color: var(--accent); }
+  .star:hover { transform: scale(1.15); }
+  .submit-btn { width: 100%; background: var(--accent); color: #f5f3ff; border: none; border-radius: var(--radius); padding: 14px; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 500; cursor: pointer; transition: background 0.2s, transform 0.1s; margin-top: 0.5rem; }
+  .submit-btn:hover { background: #c084fc; }
+  .submit-btn:active { transform: scale(0.99); }
+  .status { display: none; padding: 12px 16px; border-radius: var(--radius); font-size: 14px; margin-top: 1rem; border: 1px solid; }
+  .status.success { display: block; background: rgba(122,240,174,0.08); border-color: rgba(122,240,174,0.3); color: var(--success); }
+  .status.error { display: block; background: rgba(240,122,122,0.08); border-color: rgba(240,122,122,0.3); color: var(--danger); }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="badge">Обратная связь</div>
+    <h1>Как прошло <em>мероприятие?</em></h1>
+    <p class="sub">Ваши ответы помогут нам сделать следующее мероприятие лучше для всех.</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('participant')">Участник</button>
+    <button class="tab-btn" onclick="switchTab('assistant')">Ассистент</button>
+  </div>
+
+  <!-- Participant form -->
+  <div class="form-panel active" id="panel-participant">
+    <div class="row">
+      <div class="field"><label>Имя</label><input type="text" id="p-name" placeholder="Ваше имя" /></div>
+      <div class="field"><label>Email</label><input type="email" id="p-email" placeholder="email@example.com" /></div>
+    </div>
+    <div class="field">
+      <label>Общая оценка мероприятия</label>
+      <div class="stars" id="s-overall" data-val="0">
+        <span class="star" data-i="1">★</span><span class="star" data-i="2">★</span>
+        <span class="star" data-i="3">★</span><span class="star" data-i="4">★</span><span class="star" data-i="5">★</span>
+      </div>
+    </div>
+    <div class="field">
+      <label>Качество организации</label>
+      <div class="stars" id="s-org" data-val="0">
+        <span class="star" data-i="1">★</span><span class="star" data-i="2">★</span>
+        <span class="star" data-i="3">★</span><span class="star" data-i="4">★</span><span class="star" data-i="5">★</span>
+      </div>
+    </div>
+    <div class="field"><label>Что понравилось?</label><textarea id="p-liked" placeholder="Поделитесь впечатлениями..."></textarea></div>
+    <div class="field"><label>Что улучшить?</label><textarea id="p-improve" placeholder="Ваши предложения..."></textarea></div>
+    <div class="field">
+      <label>Придёте на следующее?</label>
+      <select id="p-return">
+        <option value="">— выберите —</option>
+        <option value="Да">Да, обязательно</option>
+        <option value="Возможно">Возможно</option>
+        <option value="Нет">Нет</option>
+      </select>
+    </div>
+    <button class="submit-btn" onclick="submitForm('participant')">Сохранить ответ →</button>
+    <div class="status" id="status-participant"></div>
+  </div>
+
+  <!-- Assistant form -->
+  <div class="form-panel" id="panel-assistant">
+    <div class="row">
+      <div class="field"><label>Имя ассистента</label><input type="text" id="a-name" placeholder="Ваше имя" /></div>
+      <div class="field"><label>Email</label><input type="email" id="a-email" placeholder="email@example.com" /></div>
+    </div>
+    <div class="field">
+      <label>Оцените организацию вашей работы</label>
+      <div class="stars" id="s-work" data-val="0">
+        <span class="star" data-i="1">★</span><span class="star" data-i="2">★</span>
+        <span class="star" data-i="3">★</span><span class="star" data-i="4">★</span><span class="star" data-i="5">★</span>
+      </div>
+    </div>
+    <div class="field"><label>Наиболее сложные задачи</label><textarea id="a-hard" placeholder="Опишите трудности..."></textarea></div>
+    <div class="field"><label>Предложения по улучшению</label><textarea id="a-suggest" placeholder="Ваши идеи..."></textarea></div>
+    <div class="field">
+      <label>Хотите участвовать снова?</label>
+      <select id="a-again">
+        <option value="">— выберите —</option>
+        <option value="Да">Да, с удовольствием</option>
+        <option value="Возможно">Возможно</option>
+        <option value="Нет">Нет</option>
+      </select>
+    </div>
+    <button class="submit-btn" onclick="submitForm('assistant')">Сохранить ответ →</button>
+    <div class="status" id="status-assistant"></div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'event_feedback_v1';
+function loadData() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; } }
+function saveData(d) { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); }
+
+document.querySelectorAll('.stars').forEach(group => {
+  group.querySelectorAll('.star').forEach(star => {
+    star.addEventListener('click', () => {
+      const val = +star.dataset.i;
+      group.dataset.val = val;
+      group.querySelectorAll('.star').forEach(s => s.classList.toggle('on', +s.dataset.i <= val));
+    });
+  });
+});
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) =>
+    b.classList.toggle('active', (i===0&&tab==='participant')||(i===1&&tab==='assistant'))
+  );
+  document.querySelectorAll('.form-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+}
+
+function showStatus(id, type, msg) {
+  const el = document.getElementById('status-' + id);
+  el.textContent = msg; el.className = 'status ' + type;
+  setTimeout(() => { el.className = 'status'; }, 4000);
+}
+
+function submitForm(type) {
+  const data = loadData();
+  let row;
+  if (type === 'participant') {
+    const name = document.getElementById('p-name').value.trim();
+    if (!name) { showStatus('participant','error','Укажите имя'); return; }
+    row = { type: 'Участник', time: new Date().toLocaleString('ru-RU'), name,
+      email: document.getElementById('p-email').value.trim(),
+      r1: document.getElementById('s-overall').dataset.val,
+      r2: document.getElementById('s-org').dataset.val,
+      t1: document.getElementById('p-liked').value.trim(),
+      t2: document.getElementById('p-improve').value.trim(),
+      ans: document.getElementById('p-return').value };
+    ['p-name','p-email','p-liked','p-improve','p-return'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('s-overall').dataset.val = 0;
+    document.getElementById('s-org').dataset.val = 0;
+    document.querySelectorAll('#s-overall .star, #s-org .star').forEach(s => s.classList.remove('on'));
+    showStatus('participant','success','Ответ сохранён! Спасибо ✓');
+  } else {
+    const name = document.getElementById('a-name').value.trim();
+    if (!name) { showStatus('assistant','error','Укажите имя'); return; }
+    row = { type: 'Ассистент', time: new Date().toLocaleString('ru-RU'), name,
+      email: document.getElementById('a-email').value.trim(),
+      r1: document.getElementById('s-work').dataset.val, r2: '',
+      t1: document.getElementById('a-hard').value.trim(),
+      t2: document.getElementById('a-suggest').value.trim(),
+      ans: document.getElementById('a-again').value };
+    ['a-name','a-email','a-hard','a-suggest','a-again'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('s-work').dataset.val = 0;
+    document.querySelectorAll('#s-work .star').forEach(s => s.classList.remove('on'));
+    showStatus('assistant','success','Ответ сохранён! Спасибо ✓');
+  }
+  data.push(row);
+  saveData(data);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Админ — Обратная связь</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0e0e11; --surface: #18181d; --surface2: #222228; --border: #2e2e38;
+    --accent: #a855f7; --accent-dim: #7c3aed; --text: #f0ede6; --muted: #7a7a8a;
+    --danger: #f07a7a; --success: #7af0ae; --blue: #7ab8f0; --radius: 12px;
+  }
+  body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; font-weight: 300; min-height: 100vh; }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(168,85,247,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(168,85,247,0.03) 1px, transparent 1px);
+    background-size: 40px 40px; pointer-events: none; z-index: 0;
+  }
+
+  /* ── Login screen ── */
+  .login-screen {
+    position: fixed; inset: 0; z-index: 50;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg);
+  }
+  .login-screen.hidden { display: none; }
+  .login-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 20px; padding: 2.5rem 2.5rem 2rem;
+    width: 100%; max-width: 380px; text-align: center;
+    box-shadow: 0 0 60px rgba(0,0,0,0.6);
+  }
+  .login-icon { font-size: 2.2rem; margin-bottom: 1rem; }
+  .login-box h2 { font-family: 'DM Serif Display', serif; font-size: 1.6rem; font-weight: 400; margin-bottom: 0.4rem; }
+  .login-box p { color: var(--muted); font-size: 13px; margin-bottom: 1.8rem; line-height: 1.5; }
+  .pw-input {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text); font-family: 'DM Sans', sans-serif;
+    font-size: 16px; padding: 13px 16px; outline: none; text-align: center;
+    letter-spacing: 0.15em; margin-bottom: 0.9rem; transition: border-color 0.2s;
+  }
+  .pw-input:focus { border-color: var(--accent-dim); }
+  .pw-input.shake { animation: shake 0.35s ease; border-color: var(--danger) !important; }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 60%{transform:translateX(8px)} 80%{transform:translateX(-4px)} }
+  .login-btn {
+    width: 100%; background: var(--accent); color: #f5f3ff; border: none;
+    border-radius: var(--radius); padding: 13px; font-family: 'DM Sans', sans-serif;
+    font-size: 15px; font-weight: 500; cursor: pointer; transition: background 0.2s;
+  }
+  .login-btn:hover { background: #c084fc; }
+  .pw-err { color: var(--danger); font-size: 13px; margin-top: 0.8rem; min-height: 18px; }
+
+  /* ── Admin dashboard ── */
+  .dashboard { position: relative; z-index: 1; display: none; }
+  .dashboard.show { display: block; }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 10;
+    background: rgba(14,14,17,0.92); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0.9rem 2rem; display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  }
+  .topbar-title { font-family: 'DM Serif Display', serif; font-size: 1.2rem; flex: 1; }
+  .topbar-title span { color: var(--accent); }
+
+  .btn {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-family: 'DM Sans', sans-serif;
+    font-size: 13px; padding: 7px 14px; cursor: pointer; transition: border-color 0.2s, background 0.2s;
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--accent-dim); background: var(--surface2); }
+  .btn.green { border-color: var(--accent); color: var(--accent); }
+  .btn.blue  { border-color: var(--blue); color: var(--blue); }
+  .btn.red   { border-color: rgba(240,122,122,0.4); color: var(--danger); }
+  .btn.muted { border-color: rgba(122,122,138,0.4); color: var(--muted); }
+
+  .main { padding: 2rem; max-width: 1100px; margin: 0 auto; }
+
+  /* Stats row */
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 2rem; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.2rem 1.4rem; }
+  .stat-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); margin-bottom: 0.5rem; }
+  .stat-card .value { font-family: 'DM Serif Display', serif; font-size: 2rem; color: var(--text); line-height: 1; }
+  .stat-card .value.green { color: var(--accent); }
+  .stat-card .value.blue  { color: var(--blue); }
+
+  /* Controls */
+  .controls { display: flex; align-items: center; gap: 10px; margin-bottom: 1.25rem; flex-wrap: wrap; }
+  .controls h2 { font-family: 'DM Serif Display', serif; font-size: 1.25rem; font-weight: 400; flex: 1; }
+  select.filter {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 13px;
+    padding: 7px 30px 7px 12px; outline: none; cursor: pointer; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237a7a8a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center;
+  }
+  select.filter option { background: #18181d; }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 600px; }
+  th { background: var(--surface2); color: var(--muted); text-transform: uppercase; letter-spacing: 0.07em; font-size: 11px; font-weight: 500; padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface); }
+  .empty { text-align: center; padding: 3rem; color: var(--muted); font-size: 14px; }
+  .type-badge { display: inline-block; font-size: 10px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; border-radius: 20px; padding: 2px 9px; }
+  .type-badge.p { background: rgba(168,85,247,0.1); color: var(--accent); border: 1px solid rgba(168,85,247,0.25); }
+  .type-badge.a { background: rgba(122,184,240,0.1); color: var(--blue); border: 1px solid rgba(122,184,240,0.25); }
+  .stars-disp { color: var(--accent); letter-spacing: -2px; }
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div class="login-screen" id="login-screen">
+  <div class="login-box">
+    <div class="login-icon">🔐</div>
+    <h2>Панель девелопера</h2>
+    <p>Введите пароль для доступа к данным обратной связи</p>
+    <input class="pw-input" type="password" id="pw-input" placeholder="••••••••"
+      onkeydown="if(event.key==='Enter') checkPw()" autocomplete="current-password" />
+    <button class="login-btn" onclick="checkPw()">Войти →</button>
+    <div class="pw-err" id="pw-err"></div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="dashboard" id="dashboard">
+
+  <div class="topbar">
+    <div class="topbar-title">Admin <span>/ Обратная связь</span></div>
+    <button class="btn green" onclick="downloadCSV('participant')">↓ CSV Участники</button>
+    <button class="btn blue"  onclick="downloadCSV('assistant')">↓ CSV Ассистенты</button>
+    <button class="btn muted" onclick="downloadCSV('all')">↓ Все данные</button>
+    <button class="btn red"   onclick="clearData()">Очистить</button>
+    <button class="btn muted" onclick="logout()">Выйти</button>
+  </div>
+
+  <div class="main">
+
+    <!-- Stats -->
+    <div class="stats" id="stats-row"></div>
+
+    <!-- Table -->
+    <div class="controls">
+      <h2>Ответы</h2>
+      <select class="filter" id="filter-type" onchange="renderTable()">
+        <option value="all">Все типы</option>
+        <option value="participant">Участники</option>
+        <option value="assistant">Ассистенты</option>
+      </select>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead id="t-head"></thead>
+        <tbody id="t-body"></tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── Config ────────────────────────────────────────────────
+const DEV_PASSWORD  = 'dev2025';       // ← смените на свой пароль
+const SESSION_KEY   = 'dev_unlocked';
+const STORAGE_KEY   = 'event_feedback_v1';
+// ─────────────────────────────────────────────────────────
+
+function loadData() { try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; } }
+
+// Auth
+function checkPw() {
+  const val = document.getElementById('pw-input').value;
+  const errEl = document.getElementById('pw-err');
+  const inp = document.getElementById('pw-input');
+  if (val === DEV_PASSWORD) {
+    sessionStorage.setItem(SESSION_KEY, '1');
+    document.getElementById('login-screen').classList.add('hidden');
+    document.getElementById('dashboard').classList.add('show');
+    renderAll();
+  } else {
+    errEl.textContent = 'Неверный пароль. Попробуйте ещё раз.';
+    inp.classList.add('shake');
+    inp.value = '';
+    setTimeout(() => inp.classList.remove('shake'), 400);
+  }
+}
+
+function logout() {
+  sessionStorage.removeItem(SESSION_KEY);
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('dashboard').classList.remove('show');
+  document.getElementById('pw-input').value = '';
+  document.getElementById('pw-err').textContent = '';
+}
+
+// On load
+if (sessionStorage.getItem(SESSION_KEY) === '1') {
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('dashboard').classList.add('show');
+  renderAll();
+} else {
+  setTimeout(() => document.getElementById('pw-input').focus(), 100);
+}
+
+function renderAll() { renderStats(); renderTable(); }
+
+function renderStats() {
+  const data = loadData();
+  const parts = data.filter(r => r.type === 'Участник');
+  const assts = data.filter(r => r.type === 'Ассистент');
+  const avgRating = arr => {
+    const vals = arr.map(r => +r.r1).filter(v => v > 0);
+    return vals.length ? (vals.reduce((a,b) => a+b, 0) / vals.length).toFixed(1) : '—';
+  };
+  document.getElementById('stats-row').innerHTML = `
+    <div class="stat-card"><div class="label">Всего ответов</div><div class="value">${data.length}</div></div>
+    <div class="stat-card"><div class="label">Участники</div><div class="value green">${parts.length}</div></div>
+    <div class="stat-card"><div class="label">Ассистенты</div><div class="value blue">${assts.length}</div></div>
+    <div class="stat-card"><div class="label">Ср. оценка (уч.)</div><div class="value green">${avgRating(parts)} ★</div></div>
+    <div class="stat-card"><div class="label">Ср. оценка (асс.)</div><div class="value blue">${avgRating(assts)} ★</div></div>
+  `;
+}
+
+const ALL_COLS = ['Время','Тип','Имя','Email','Оценка 1','Оценка 2','Текст 1','Текст 2','Ответ'];
+
+function renderTable() {
+  const data = loadData();
+  const filter = document.getElementById('filter-type').value;
+  const filtered = filter === 'all' ? data : data.filter(r =>
+    filter === 'participant' ? r.type === 'Участник' : r.type === 'Ассистент'
+  );
+  document.getElementById('t-head').innerHTML = '<tr>' + ALL_COLS.map(c => `<th>${c}</th>`).join('') + '</tr>';
+  if (!filtered.length) {
+    document.getElementById('t-body').innerHTML = `<tr><td colspan="${ALL_COLS.length}" class="empty">Ответов пока нет</td></tr>`;
+    return;
+  }
+  document.getElementById('t-body').innerHTML = filtered.map(r => `<tr>
+    <td style="white-space:nowrap;color:var(--muted)">${r.time}</td>
+    <td><span class="type-badge ${r.type==='Участник'?'p':'a'}">${r.type}</span></td>
+    <td><strong>${esc(r.name)}</strong></td>
+    <td style="color:var(--muted)">${esc(r.email)||'—'}</td>
+    <td><span class="stars-disp">${r.r1>0?'★'.repeat(+r.r1):''}</span> ${r.r1>0?r.r1:'—'}</td>
+    <td><span class="stars-disp">${r.r2>0?'★'.repeat(+r.r2):''}</span> ${r.r2>0?r.r2:'—'}</td>
+    <td style="max-width:200px">${esc(r.t1)||'—'}</td>
+    <td style="max-width:200px">${esc(r.t2)||'—'}</td>
+    <td>${esc(r.ans)||'—'}</td>
+  </tr>`).join('');
+}
+
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// CSV downloads
+function downloadCSV(type) {
+  const all = loadData();
+  if (!all.length) { alert('Нет данных для скачивания'); return; }
+  let data, headers, filename;
+
+  if (type === 'participant') {
+    data = all.filter(r => r.type === 'Участник');
+    if (!data.length) { alert('Нет ответов от участников'); return; }
+    headers = ['Время','Имя','Email','Оценка (общ.)','Оценка (орг.)','Что понравилось','Что улучшить','Придёт снова'];
+    filename = 'participants_' + today() + '.csv';
+    const rows = data.map(r => [r.time, r.name, r.email, r.r1, r.r2, r.t1, r.t2, r.ans].map(ce));
+    trigger(headers, rows, filename);
+
+  } else if (type === 'assistant') {
+    data = all.filter(r => r.type === 'Ассистент');
+    if (!data.length) { alert('Нет ответов от ассистентов'); return; }
+    headers = ['Время','Имя','Email','Оценка работы','Сложные задачи','Предложения','Участвует снова'];
+    filename = 'assistants_' + today() + '.csv';
+    const rows = data.map(r => [r.time, r.name, r.email, r.r1, r.t1, r.t2, r.ans].map(ce));
+    trigger(headers, rows, filename);
+
+  } else {
+    headers = ['Время','Тип','Имя','Email','Оценка 1','Оценка 2','Текст 1','Текст 2','Ответ'];
+    filename = 'feedback_all_' + today() + '.csv';
+    const rows = all.map(r => [r.time, r.type, r.name, r.email, r.r1, r.r2, r.t1, r.t2, r.ans].map(ce));
+    trigger(headers, rows, filename);
+  }
+}
+
+function trigger(headers, rows, filename) {
+  const csv = '\uFEFF' + [headers, ...rows].map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function ce(v) {
+  const s = String(v ?? '');
+  return (s.includes(',') || s.includes('"') || s.includes('\n')) ? '"' + s.replace(/"/g,'""') + '"' : s;
+}
+
+function today() { return new Date().toISOString().slice(0,10); }
+
+function clearData() {
+  if (!confirm('Удалить ВСЕ ответы? Это действие нельзя отменить.')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  renderAll();
+}
+</script>
+</body>
+</html>
